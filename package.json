@@ -1,0 +1,61 @@
+{
+  "name": "tisseo-project",
+  "version": "1.0.0",
+  "description": "Visualisation et modification des arrêts du réseau de bus Tisseo.",
+  "main": "server-app.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "server": "./node_modules/.bin/nodemon --watch server --watch templates -e js,html ./app.js",
+    "build-client": "./node_modules/.bin/webpack --mode=production --progress --profile --colors",
+    "watch-client": "./node_modules/.bin/webpack --mode=development --watch"
+  },
+  "keywords": [
+    "web",
+    "tisseo"
+  ],
+  "author": "Soufiane KHAIT",
+  "license": "ISC",
+  "babel": {
+    "presets": [
+      [
+        "@babel/preset-env",
+        {
+          "useBuiltIns": "usage",
+          "corejs": 3
+        }
+      ],
+      "@babel/preset-react"
+    ]
+  },
+  "dependencies": {
+    "@babel/runtime": "^7.10.2",
+    "body-parser": "^1.19.0",
+    "cookie-parser": "^1.4.5",
+    "core-js": "^3.6.5",
+    "csurf": "^1.11.0",
+    "csv-parser": "^2.3.2",
+    "express": "^4.17.1",
+    "express-flash": "0.0.2",
+    "express-session": "^1.17.1",
+    "express-validator": "^6.4.1",
+    "leaflet": "^1.6.0",
+    "nodemon": "^2.0.3",
+    "nunjucks": "^3.2.1",
+    "react": "^16.13.1",
+    "react-dom": "^16.13.1",
+    "react-leaflet": "^2.7.0",
+    "reactstrap": "^8.4.1",
+    "sequelize": "^5.21.7",
+    "serve-favicon": "^2.5.0",
+    "sqlite3": "^4.2.0"
+  },
+  "devDependencies": {
+    "@babel/cli": "^7.10.1",
+    "@babel/core": "^7.10.2",
+    "@babel/preset-env": "^7.10.2",
+    "@babel/preset-react": "^7.10.1",
+    "babel-loader": "^8.1.0",
+    "webpack": "^4.43.0",
+    "webpack-cli": "^3.3.11"
+  }
+}
