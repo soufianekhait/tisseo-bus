@@ -1,0 +1,163 @@
+{% extends "base.html" %}
+
+{% block title %}{{ super() }}Liste des arrêts{% endblock %}
+
+{% block stylesheets %}
+<link rel="stylesheet" type="text/css" href="/public/assets/css/plan-arrets.css"/>
+{% endblock %}
+
+{% block content %}
+<div class="table-wrapper">
+    <div class="table-title bg-dark">
+        <div class="row">
+            <div class="col-sm-6">
+                <h2>Gestion des arrêts de bus - Tisséo</h2>
+            </div>
+            <div class="col-sm-6">
+                <a class="btn btn-success" data-toggle="modal" data-target="#addStopModal" data-title="Ajouter un nouvel arrêt de bus"><i class="material-icons">&#xE147;</i> <span>Ajouter un nouvel arrêt</span></a>
+                <a class="btn btn-danger" data-toggle="modal" data-target="#deleteStopModal"><i class="material-icons">&#xE15C;</i> <span>Supprimer</span></a>
+            </div>
+        </div>
+    </div>
+    {% if (messages.success) %}
+    <div class="alert alert-success" role="alert">{{- messages.success }}</div>
+    {% endif %}
+    {% if (messages.failed) %}
+    <div class="alert alert-danger" role="alert">{{- messages.failed }}</div>
+    {% endif %}
+    <table class="table table-striped table-hover">
+        <thead>
+        <tr>
+            <th>
+                <span class="custom-checkbox">
+                    <input type="checkbox" id="selectAll"><label for="selectAll"></label>
+                </span>
+            </th>
+            <th>Ligne</th>
+            <th>Départ</th>
+            <th>Terminus</th>
+            <th>Arrêt</th>
+            <th>Longitude</th>
+            <th>Latitude</th>
+            <th>Actions</th>
+        </tr>
+        </thead>
+        <tbody>
+        {% for arret in arrets %}
+        <tr>
+            <td>
+                <span class="custom-checkbox">
+                    <input type="checkbox" id="checkbox-{{arret['stop.arret.id_trajet']}}-{{arret['stop.arret.id_station']}}" name="options[]" value="1">
+                    <label for="checkbox-{{arret['stop.arret.id_trajet']}}-{{arret['stop.arret.id_station']}}"></label>
+                </span>
+            </td>
+            <td>{{ arret.num_ligne }}</td>
+            <td>{{ arret['depart.nom_station'] }}</td>
+            <td>{{ arret['terminus.nom_station'] }}</td>
+            <td>{{ arret['stop.nom_station'] }}</td>
+            <td>{{ arret['stop.longitude_station'] | round(3) }}</td>
+            <td>{{ arret['stop.latitude_station'] | round(3) }}</td>
+            <td>
+                <a class="edit" style="cursor: pointer;" data-toggle="modal" data-target="#addStopModal" data-title="Modifier l'arrêt"><i class="material-icons" data-toggle="tooltip" title="Modifier l'arrêt" data-id="{{arret['stop.arret.id_trajet']}}-{{arret['stop.arret.id_station']}}">&#xE254;</i></a>
+                <a class="delete" style="cursor: pointer;" data-toggle="modal"><i class="material-icons" data-toggle="tooltip" title="Supprimer l'arrêt" data-id="{{arret['stop.arret.id_trajet']}}-{{arret['stop.arret.id_station']}}">&#xE872;</i></a>
+            </td>
+        </tr>
+        {% endfor %}
+        </tbody>
+    </table>
+
+    <!-- Count entries -->
+    <div class="clearfix">
+        <div class="hint-text">Affichage de <b>{{ limit if count >= limit else count }}</b> arrêts sur <b>{{ count }}</b></div>
+        <ul class="pagination pagination-dots">
+            <li class="page-item {{ 'disabled' if (currentPage == 1) or (pages < 1) }}">
+                <a class="page-link" href="?page={{ '#' if (currentPage == 1) or (pages < 1) else currentPage - 1 }}" tabindex="-1">Précédent</a>
+            </li>
+            {% for i in range(1, pages+1) -%}
+            <li class="page-item {{ 'active' if i==currentPage }}"><a class="page-link text-link" href="?page={{i}}">{{i}}</a></li>
+            {% endfor %}
+            <li class="page-item {{ 'disabled' if (currentPage == pages) and (pages > 1) }}">
+                <a class="page-link" href="?page={{ '#' if (currentPage == pages) and (pages > 1) else currentPage + 1 }}">Suivant</a>
+            </li>
+        </ul>
+    </div>
+</div>
+{% endblock %}
+
+{% block modals %}
+<!-- Add Modal HTML -->
+<div class="modal fade" id="addStopModal" tabindex="-1" role="dialog" aria-labelledby="exampleModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="addModal"></h5>
+                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                    <span aria-hidden="true">&times;</span>
+                </button>
+            </div>
+            <form method="POST" id="add_form" action="arrets/add?_csrf={{- csrfToken }}">
+                <div class="modal-body">
+                    <input type="hidden" name="_csrf" value="{{- csrfToken }}">
+                    <div class="form-group" id="nomArret-group">
+                        <p id="paragraphInModal"></p>
+                        <label for="nomArret" class="col-form-label">Nom de l'arrêt :</label>
+                        <input type="text" value="{{ data.nomArret if data }}" class="form-control" id="nomArret" name="nomArret">
+                        <br>
+                    </div>
+                    <div class="form-group" id="longitudeArret-group">
+                        <label for="longitudeArret" class="col-form-label">Longitude de l'arrêt :</label>
+                        <input type="text" value="{{ data.longitudeArret if data}}" class="form-control" id="longitudeArret" name="longitudeArret">
+                        <br>
+                    </div>
+                    <div class="form-group" id ="latitudeArret-group">
+                        <label for="latitudeArret" class="col-form-label">Latitude de l'arrêt :</label>
+                        <input type="text" value="{{ data.latitudeArret if data }}" class="form-control" id="latitudeArret" name="latitudeArret">
+                        <br>
+                    </div>
+                    <div class="form-group">
+                        <label for="trajet-select" class="col-form-label">La ligne à laquelle appartient l'arrêt :</label>
+                        <select class="form-control" id="trajet-select" name="trajetArret">
+                            {% for trajet in trajets %}
+                            <option value="{{ trajet.id_trajet }}_{{ trajet['depart.id_station'] }}_{{ trajet['terminus.id_station'] }}">{{ trajet.num_ligne }} : {{ trajet['depart.nom_station'] }} - {{ trajet['terminus.nom_station'] }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-dismiss="modal">Annuler</button>
+                    <button type="button" class="btn btn-success" id="addArret">Ajouter l'arrêt</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Delete Modal HTML -->
+<div id="deleteStopModal" class="modal fade">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <form>
+                {% if (messages.failed) %}
+                <div class="alert alert-danger" role="alert">{{- messages.failed }}</div>
+                {% endif %}
+                <div class="modal-header">
+                    <h4 class="modal-title">Supprimer le/les arrêt(s)</h4>
+                    <button type="button" class="close" data-dismiss="modal" aria-hidden="true">&times;</button>
+                </div>
+                <div class="modal-body">
+                    <p>Êtes-vous sûr de vouloir supprimer le/les enregistrements ?</p>
+                    <p class="text-danger">Cette opération est irréversible.</p>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-danger" data-dismiss="modal">Annuler</button>
+                    <button type="button" class="btn btn-secondary stop-delete-btn">Supprimer l'arrêt</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script type="text/javascript" src="/public/assets/js/arrets.js"></script>
+{% endblock %}

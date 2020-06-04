@@ -1,0 +1,42 @@
+{% extends "base.html" %}
+
+{% block title %}{{ super() }}Ajouter une balise{% endblock %}
+
+{% block h1 %}
+    <h1>Ajouter une nouvelle balise</h1>
+<br>
+{% endblock %}
+
+{% block form %}
+    {% if (messages.failed) %}
+    <div class="alert alert-danger" role="alert">{{- messages.failed }}</div>
+    {% endif %}
+    <form method="POST" id="add_form" action="add?_csrf={{- csrfToken }}">
+        <input type="hidden" name="_csrf" value="{{- csrfToken }}">
+        <div class="form-group">
+            <label for="id_balise">Identifiant de la balise</label>
+            <input type="text" value="{{ data.id }}" name="id" id="id_balise" class="form-control" autofocus aria-describedby="identifiant_desc">
+            <small id="identifiant_desc" class="form-text text-muted">Identifiant de la balise</small>
+            {% if (errors.id) %}
+            <div class="alert alert-danger" role="alert">{{- errors.id.msg }}</div>
+            {% endif %}
+        </div>
+        <div class="form-group">
+            <label for="latitude">Latitude</label>
+            <input type="numeric" value="{{ data.latitude }}" name="latitude" id="latitude" class="form-control" aria-describedby="latitude_desc">
+            <small id="latitude_desc" class="form-text text-muted">Latitude de la balise</small>
+            {% if (errors.latitude) %}
+            <div class="alert alert-danger" role="alert">{{- errors.latitude.msg }}</div>
+            {% endif %}
+        </div>
+        <div class="form-group">
+            <label for="longitude">Longitude</label>
+            <input type="numeric" value="{{ data.longitude }}" name="longitude" id="longitude" class="form-control" aria-describedby="longitude_desc">
+            <small id="longitude_desc" class="form-text text-muted">Longitude de la balise</small>
+            {% if (errors.longitude) %}
+            <div class="alert alert-danger" role="alert">{{- errors.longitude.msg }}</div>
+            {% endif %}
+        </div>
+        <button type="submit" class="btn btn-primary">Ajouter</button>
+    </form>
+{% endblock %}
