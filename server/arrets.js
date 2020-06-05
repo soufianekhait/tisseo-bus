@@ -6,12 +6,31 @@ module.exports = (models, Op, Sequelize) => {
     const csrfProtection = csrf({ cookie: true });
     const { check, validationResult } = require('express-validator');
 
+    function pagination(current, limit){
+        let maxLeft = current - Math.floor(limit/2);
+        let maxRight = current + Math.floor(limit/2);
+        let displayedLinks = 10;
+
+        if (maxLeft < 1){
+            maxLeft = 1;
+            maxRight = displayedLinks;
+        }
+        if (maxRight > current){
+            maxLeft = current - (displayedLinks - 1);
+            maxRight = current;
+            if (maxLeft < 1)
+                maxLeft = 1;
+        }
+        return { maxLeft, maxRight };
+    }
+
     router.get('/', csrfProtection, async (req, res, next) => {
         const limit = 10; // results per page
         const currentPage = parseInt(req.query.page) || 1; // current page
         const offset = (limit * currentPage) - limit;
 
         try{
+            // Find and count all stations where buses stop
             const { count, rows } = await Bus.findAndCountAll({ subQuery: false, include:[
                 { model: Station, as: 'stop', required: true},
                     { model: Station, as: 'depart', required: true },
@@ -19,25 +38,25 @@ module.exports = (models, Op, Sequelize) => {
             ], order: [[{ model: Station, as: 'stop' } , 'nom_station', 'ASC']],
                     offset: offset, limit: limit, attributes: ['num_ligne'], raw: true });
 
-            const nbPages = Math.round(count/limit);
-
+            // Find all buses
             const trajets = await Bus.findAll({ subQuery: false, include:[
                     { model: Station, as: 'depart', required: true, attributes: ['nom_station', 'id_station'] },
                     { model: Station, as: 'terminus', required: true, attributes: ['nom_station', 'id_station']}
                 ], order: [[{ model: Station, as: 'depart' } , 'nom_station', 'ASC']],
                 attributes: ['id_trajet', 'num_ligne'], raw: true });
 
+            const nbPages = Math.round(count/limit);
+
             if (req.query.page > nbPages || req.query.page <= 0)
                 next();
             else
-                res.render('arrets', { arrets: rows,
-                    currentPage, pages:
-                    nbPages,
-                    count,
-                    limit,
-                    trajets,
+                res.render('arrets', { arrets: rows, trajets,
+                    currentPage, nbPages,
+                    count, limit,
                     active: 'arrets',
-                    csrfToken: req.csrfToken()
+                    csrfToken: req.csrfToken(),
+                    maxLeft: pagination(currentPage, limit).maxLeft,
+                    maxRight: pagination(currentPage, limit).maxRight,
                 });
             } catch (err) {
                 throw new Error(err);
