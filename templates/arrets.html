@@ -66,9 +66,9 @@
         </tbody>
     </table>
 
-    <!-- Count entries -->
+    <!-- Count entries and paginate -->
     <div class="clearfix">
-        <div class="hint-text">Affichage de <b>{{ limit if count >= limit else count }}</b> résultats sur <b>{{ count }}</b></div>
+        <div class="hint-text">Affichage de <b>{{ arrets | length }}</b> résultats sur <b>{{ count }}</b></div>
         <ul class="pagination">
             {% if currentPage != 1 -%}
             <li class="page-item">
