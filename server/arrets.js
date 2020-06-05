@@ -7,9 +7,9 @@ module.exports = (models, Op, Sequelize) => {
     const { check, validationResult } = require('express-validator');
 
     function pagination(current, limit){
-        let maxLeft = current - Math.floor(limit/2);
-        let maxRight = current + Math.floor(limit/2);
         let displayedLinks = 10;
+        let maxLeft = current - Math.floor(displayedLinks/2);
+        let maxRight = current + Math.floor(displayedLinks/2);
 
         if (maxLeft < 1){
             maxLeft = 1;
@@ -17,7 +17,10 @@ module.exports = (models, Op, Sequelize) => {
         }
         if (maxRight > current){
             maxLeft = current - (displayedLinks - 1);
-            maxRight = current;
+            if (current > displayedLinks)
+                maxRight = current;
+            else
+                maxRight = displayedLinks;
             if (maxLeft < 1)
                 maxLeft = 1;
         }
@@ -32,18 +35,18 @@ module.exports = (models, Op, Sequelize) => {
         try{
             // Find and count all stations where buses stop
             const { count, rows } = await Bus.findAndCountAll({ subQuery: false, include:[
-                { model: Station, as: 'stop', required: true},
+                    { model: Station, as: 'stop', required: true},
                     { model: Station, as: 'depart', required: true },
                     { model: Station, as: 'terminus', required: true,}
-            ], order: [[{ model: Station, as: 'stop' } , 'nom_station', 'ASC']],
+            ], order: [[{ model: Station, as: 'depart' } , 'nom_station', 'ASC']],
                     offset: offset, limit: limit, attributes: ['num_ligne'], raw: true });
 
             // Find all buses
             const trajets = await Bus.findAll({ subQuery: false, include:[
-                    { model: Station, as: 'depart', required: true, attributes: ['nom_station', 'id_station'] },
-                    { model: Station, as: 'terminus', required: true, attributes: ['nom_station', 'id_station']}
-                ], order: [[{ model: Station, as: 'depart' } , 'nom_station', 'ASC']],
-                attributes: ['id_trajet', 'num_ligne'], raw: true });
+                { model: Station, as: 'depart', required: true, attributes: ['nom_station', 'id_station'] },
+                { model: Station, as: 'terminus', required: true, attributes: ['nom_station', 'id_station']}
+            ], order: [[{ model: Station, as: 'depart' } , 'nom_station', 'ASC']],
+            attributes: ['id_trajet', 'num_ligne'], raw: true });
 
             const nbPages = Math.round(count/limit);
 
