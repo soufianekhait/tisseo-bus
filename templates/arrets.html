@@ -68,17 +68,29 @@
 
     <!-- Count entries -->
     <div class="clearfix">
-        <div class="hint-text">Affichage de <b>{{ limit if count >= limit else count }}</b> arrêts sur <b>{{ count }}</b></div>
-        <ul class="pagination pagination-dots">
-            <li class="page-item {{ 'disabled' if (currentPage == 1) or (pages < 1) }}">
+        <div class="hint-text">Affichage de <b>{{ limit if count >= limit else count }}</b> résultats sur <b>{{ count }}</b></div>
+        <ul class="pagination">
+            {% if currentPage != 1 -%}
+            <li class="page-item">
+                <a class="page-link" href="?page=1">Première</a>
+            </li>
+            <li class="page-item">
                 <a class="page-link" href="?page={{ '#' if (currentPage == 1) or (pages < 1) else currentPage - 1 }}" tabindex="-1">Précédent</a>
             </li>
-            {% for i in range(1, pages+1) -%}
-            <li class="page-item {{ 'active' if i==currentPage }}"><a class="page-link text-link" href="?page={{i}}">{{i}}</a></li>
+            {% endif %}
+            {% for i in range(maxLeft, maxRight+1) -%}
+            <li class="page-item {{ 'active' if i==currentPage }}">
+                <a class="page-link text-link" href="?page={{i}}">{{i}}</a>
+            </li>
             {% endfor %}
-            <li class="page-item {{ 'disabled' if (currentPage == pages) and (pages > 1) }}">
+            {% if currentPage != nbPages -%}
+            <li class="page-item ">
                 <a class="page-link" href="?page={{ '#' if (currentPage == pages) and (pages > 1) else currentPage + 1 }}">Suivant</a>
             </li>
+            <li class="page-item">
+                <a class="page-link" href="?page={{nbPages}}">Dernière</a>
+            </li>
+            {% endif %}
         </ul>
     </div>
 </div>
