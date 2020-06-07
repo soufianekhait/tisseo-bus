@@ -1,4 +1,4 @@
-module.exports = (models, Op, Sequelize) => {
+module.exports = (models, Op) => {
     const express = require('express');
     const router = express.Router();
     const {Station, Bus, Arret} = models;
@@ -6,7 +6,22 @@ module.exports = (models, Op, Sequelize) => {
     const csrfProtection = csrf({ cookie: true });
     const { check, validationResult } = require('express-validator');
 
-    function pagination(current, limit){
+    const trajets = async () => {
+        try {
+            return await Bus.findAll({
+                subQuery: false, include: [
+                    {model: Station, as: 'depart', required: true, attributes: ['nom_station', 'id_station']},
+                    {model: Station, as: 'terminus', required: true, attributes: ['nom_station', 'id_station']}
+                ], order: [[{model: Station, as: 'depart'}, 'nom_station', 'ASC']],
+                attributes: ['id_trajet', 'num_ligne'], raw: true
+            });
+        } catch(e){
+            throw new Error(e);
+        }
+    };
+
+
+    function pagination(current){
         let displayedLinks = 10;
         let maxLeft = current - Math.floor(displayedLinks/2);
         let maxRight = current + Math.floor(displayedLinks/2);
@@ -27,6 +42,7 @@ module.exports = (models, Op, Sequelize) => {
         return { maxLeft, maxRight };
     }
 
+
     router.get('/', csrfProtection, async (req, res, next) => {
         const limit = 10; // results per page
         const currentPage = parseInt(req.query.page) || 1; // current page
@@ -34,32 +50,25 @@ module.exports = (models, Op, Sequelize) => {
 
         try{
             // Find and count all stations where buses stop
-            const { count, rows } = await Bus.findAndCountAll({ subQuery: false, include:[
+            let { count, rows: arrets } = await Bus.findAndCountAll({ subQuery: false, include:[
                     { model: Station, as: 'stop', required: true},
                     { model: Station, as: 'depart', required: true },
                     { model: Station, as: 'terminus', required: true,}
             ], order: [[{ model: Station, as: 'depart' } , 'nom_station', 'ASC']],
                     offset: offset, limit: limit, attributes: ['num_ligne'], raw: true });
 
-            // Find all buses
-            const trajets = await Bus.findAll({ subQuery: false, include:[
-                { model: Station, as: 'depart', required: true, attributes: ['nom_station', 'id_station'] },
-                { model: Station, as: 'terminus', required: true, attributes: ['nom_station', 'id_station']}
-            ], order: [[{ model: Station, as: 'depart' } , 'nom_station', 'ASC']],
-            attributes: ['id_trajet', 'num_ligne'], raw: true });
-
             const nbPages = Math.round(count/limit);
 
             if (req.query.page > nbPages || req.query.page <= 0)
                 next();
             else
-                res.render('arrets', { arrets: rows, trajets,
+                res.render('arrets', { arrets, trajets : await trajets(),
                     currentPage, nbPages,
-                    count, limit,
+                    count,
                     active: 'arrets',
                     csrfToken: req.csrfToken(),
-                    maxLeft: pagination(currentPage, limit).maxLeft,
-                    maxRight: pagination(currentPage, limit).maxRight,
+                    maxLeft: pagination(currentPage).maxLeft,
+                    maxRight: pagination(currentPage).maxRight,
                 });
             } catch (err) {
                 throw new Error(err);
@@ -73,15 +82,24 @@ module.exports = (models, Op, Sequelize) => {
             .isString().withMessage('Le nom de l\'arrêt doit être une chaîne de caractères')
             .notEmpty().withMessage('Le nom de l\'arrêt est obligatoire')
             .isLength({ min: 3 }).withMessage('Le nom de l\'arrêt doit contenir 3 caractères minimum')
-            .trim(),
+            .trim(), // sanitize it
         check('longitudeArret')
             .notEmpty().withMessage('La longitude de l\'arrêt est obligatoire')
-            .isNumeric().withMessage('Longitude de l\'arrêt doit être numérique')
-            .trim(),
+            .isNumeric().withMessage('Longitude de l\'arrêt doit être un entier')
+            .isFloat({ min: -90, max: 90 }).withMessage('Longitude doit être comprise entre -90° et 90°')
+            .trim(), // sanitize it
         check('latitudeArret')
             .notEmpty().withMessage('La latitude de l\'arrêt est obligatoire')
-            .isNumeric().withMessage('Latitude de l\'arrêt doit être numérique')
-            .trim()
+            .isNumeric().withMessage('Latitude de l\'arrêt doit être un entier')
+            .isFloat({ min: -90, max: 90 }).withMessage('Latitude doit être comprise entre -90° et 90°')
+            .trim(), // sanitize it
+        check('trajetArret')
+            .custom(async value =>{
+                const listTrajets = await trajets();
+                if (!(value in listTrajets.map(trajet => trajet.id_trajet ))){
+                    throw new Error('Le trajet doit faire partie de la liste proposée');
+                }
+            }),
     ], async (req, res) =>{
         const errors = validationResult(req);
         if (!errors.isEmpty()) {
@@ -93,10 +111,9 @@ module.exports = (models, Op, Sequelize) => {
             }));
         }
 
-        const formatLigne = req.body.trajetArret.split('_');
         const existingStation = await Station.findOne({where: {nom_station: req.body.nomArret}});
 
-        Bus.findOne({ where:{ id_trajet: formatLigne[0] } }).then( async (trajet) => {
+        Bus.findOne({ where:{ id_trajet: req.body.trajetArret } }).then( async (trajet) => {
             if (existingStation) {
                 await Arret.create({
                     id_trajet: trajet.id_trajet,
@@ -135,9 +152,20 @@ module.exports = (models, Op, Sequelize) => {
         } catch(err){
             throw new Error(err);
         }
-        const arret = await Station.findByPk(req.params.stationID);
-        req.flash('success', `L'arrêt ${arret.nom_station} a bien été supprimé de la ligne associée.`);
+        const station = await Station.findByPk(req.params.stationID);
+        req.flash('success', `L'arrêt ${station.nom_station} a bien été supprimé de la ligne associée.`);
         res.status(200).send("Item deleted");
+    });
+
+    router.get('/delete/:array', async (req, res)=>{
+        console.log(req.params.array);
+    });
+
+    router.get('/update/:arretId', async (req, res)=>{
+        const station = await Station.findOne({ where: { id_station: req.params.arretId }});
+
+        res.setHeader('Content-Type', 'application/json');
+        res.end(JSON.stringify({ response: "Got the items' values", data: station }));
     });
 
     router.post('/update', csrfProtection, [
@@ -145,15 +173,24 @@ module.exports = (models, Op, Sequelize) => {
             .isString().withMessage('Le nom de l\'arrêt doit être une chaîne de caractères')
             .notEmpty().withMessage('Le nom de l\'arrêt est obligatoire')
             .isLength({ min: 3 }).withMessage('Le nom de l\'arrêt doit contenir 3 caractères minimum')
-            .trim(),
+            .trim(), // sanitize it
         check('longitudeArret')
             .notEmpty().withMessage('La longitude de l\'arrêt est obligatoire')
-            .isNumeric().withMessage('Longitude de l\'arrêt doit être numérique')
-            .trim(),
+            .isNumeric().withMessage('Longitude de l\'arrêt doit être un entier')
+            .isFloat({ min: -90, max: 90 }).withMessage('Longitude doit être comprise entre -90° et 90°')
+            .trim(), // sanitize it
         check('latitudeArret')
             .notEmpty().withMessage('La latitude de l\'arrêt est obligatoire')
-            .isNumeric().withMessage('Latitude de l\'arrêt doit être numérique')
-            .trim()
+            .isNumeric().withMessage('Latitude de l\'arrêt doit être un entier')
+            .isFloat({ min: -90, max: 90 }).withMessage('Latitude doit être comprise entre -90° et 90°')
+            .trim(), // sanitize it
+        check('trajetArret')
+            .custom(async value =>{
+                const listTrajets = await trajets();
+                if (!(value in listTrajets.map(trajet => trajet.id_trajet ))){
+                    throw new Error('Le trajet doit faire partie de la liste proposée');
+                }
+            }),
     ], async (req, res) =>{
         const errors = validationResult(req);
         if (!errors.isEmpty()) {
@@ -165,16 +202,52 @@ module.exports = (models, Op, Sequelize) => {
             }));
         }
 
+        const stationFound = await Station.findOne({where: { nom_station: req.body.nomArret }});
+        const oldTrajet = await Arret.findOne({where: [{ id_trajet: req.body.oldIdTrajet }, { id_station: req.body.oldIdArret }]});
+
+        if(stationFound){
+            stationFound.longitude_station = req.body.longitudeArret;
+            stationFound.latitude_station = req.body.latitudeArret;
+            if (oldTrajet){
+                await oldTrajet.destroy();
+                await stationFound.save();
+                await Arret.create({
+                    id_trajet: req.body.trajetArret,
+                    id_station: stationFound.id_station
+                });
+            }
+        } else{
+            const newStation = await Station.create({
+                nom_station: req.body.nomArret,
+                longitude_station: req.body.longitudeArret,
+                latitude_station: req.body.latitudeArret
+            });
+            oldTrajet.destroy();
+            await Arret.create({
+                id_trajet: req.body.trajetArret,
+                id_station: newStation.id_station
+            });
+        }
+
+        req.flash('success', `L'arrêt a bien été modifié.`);
+        return res.status(200).json({ response: "Item updated" });
     });
 
-    router.post('/search', async (req,res) =>{
+    /*router.post('/search', csrfProtection, async (req,res) =>{
         try{
-            const {count, rows} = await Beacon.findAndCountAll({ where:{ id:{ [Op.like]: `%${req.body.id}%` }}});
-            res.render('recherche-balise', { beacons: rows, countBeacons: count, keyword: req.body.id });
+            let { count, rows } = await Bus.findAndCountAll({ subQuery: false, include:[
+                    { model: Station, as: 'stop', required: true, where:{ nom_station:{ [Op.like]: `%${req.body.searchArret}%` } }},
+                    { model: Station, as: 'depart', required: true },
+                    { model: Station, as: 'terminus', required: true }
+                ], order: [[{ model: Station, as: 'depart' } , 'nom_station', 'ASC']],
+                attributes: ['num_ligne'], raw: true });
+            res.setHeader('Content-Type', 'application/json');
+            return res.end(JSON.stringify({ arrets: rows, count, csrfToken: req.csrfToken() }));
+            //res.render('arrets', { arrets: rows, count, csrfToken: req.csrfToken() })
         } catch(err){
             throw new Error(err);
         }
-    });
+    });*/
 
     return router;
 };
