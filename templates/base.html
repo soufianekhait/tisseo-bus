@@ -24,8 +24,8 @@
             </button>
             <div class="collapse navbar-collapse" id="navbarNavAltMarkup">
                 <div class="navbar-nav">
-                    <a class="nav-item nav-link {% if active == 'map' %}active{% endif %}" id="home" href="/">Carte</a>
-                    <a class="nav-item nav-link {% if active == 'arrets' %}active{% endif %}" href="/arrets">Arrêts</a>
+                    <a class="nav-item nav-link {{ 'active' if active == 'map' }}" href="/">Carte</a>
+                    <a class="nav-item nav-link {{ 'active' if active == 'arrets'}}" href="/arrets">Arrêts</a>
                 </div>
             </div>
         </nav>
@@ -39,6 +39,7 @@
     {% block modals %}{% endblock %}
     <script src="https://ajax.googleapis.com/ajax/libs/jquery/1.12.4/jquery.min.js"></script>
     <script src="/public/assets/js/bootstrap.min.js"></script>
+    <script src="/public/assets/js/nunjucks.js"></script>
     {% block scripts %}{% endblock %}
 </body>
 </html>
