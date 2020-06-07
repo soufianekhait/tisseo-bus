@@ -20,11 +20,7 @@ async function createTables(models) {
 async function readFile(models, filePath) {
     const output = [];
     //initializes the fs.ReadStream object
-    fs.createReadStream(filePath)
-        //checks for errors with the given filepath before we start trying to pipe in its data
-        .on('error', (e) => {
-            throw e;
-        })
+    const readStream = fs.createReadStream(filePath)
         //begins to pipe data into our ReadStream, which is now listening for the next two events below
         .pipe(csv({ mapValues: ({ header, value }) => {
             if (header === 'sens')
@@ -35,11 +31,17 @@ async function readFile(models, filePath) {
         //returns each line of the CSV row-by-row, accessible in its callback as data.
         .on('data', (data) => {
             output.push(data);
-        })
-        //listens for the end of the CSV.
-        .on('end', () => {
-            formatData(models, output);
         });
+
+    const end = new Promise(function(resolve, reject) {
+        //listens for the end of the CSV.
+        readStream.on('end', () => resolve(output));
+        //checks for errors
+        readStream.on('error', reject)
+    });
+
+    let rawData = await end;
+    await formatData(models, rawData);
 }
 
 
@@ -126,7 +128,7 @@ async function importData(models, formattedData) {
                     { depart_station: depStation.id_station }, { terminus_station: terStation.id_station },
                             { num_ligne: arret.id_trajet }]}});
                 let station = await Station.findOne({ where: { nom_station: arret.id_station }});
-                console.log(`Ligne ${trajet.num_ligne} : ${depStation.nom_station} -> ${terStation.nom_station} --> ${station.nom_station}`);
+
                 await Arret.create({
                     ordre_arret: parseInt(arret.ordre_arret),
                     id_trajet: trajet.id_trajet,
@@ -146,10 +148,12 @@ async function importFile(filePath) {
     const models = sequelize.import(path.join(__dirname, 'server', 'models.js'));
     await createTables(models);
     await readFile(models, filePath);
-    //await sequelize.close();
+    await sequelize.close();
 }
 
 
 importFile(path.join(__dirname, "db", "Arret Bus - Toulouse.csv")).then(
     () => { console.log("Les données ont été importées"); }
-);
+).catch(err =>{
+    throw new Error(err);
+});
