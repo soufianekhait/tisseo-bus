@@ -21,7 +21,7 @@ function launchServer(){
     //le moteur de modèle à utiliser
     app.set('view engine', 'html');
     // configuration du moteur de rendu
-    nunjucks.configure(tplPath, { autoescape: true, express: app });
+    nunjucks.configure(tplPath, { web: {useCache: true, async: true}, autoescape: true, express: app });
     // pour décoder les données issues d'un formulaire POST
     app.use(bodyParser.urlencoded({ extended: true }));
     // parse cookies
@@ -35,11 +35,11 @@ function launchServer(){
         cookie: { maxAge: 60000 }
     }), flash()]);
     // toutes les URL commençant par balises sont redirigées
-    // vers l'objet beaconsRouter défini dans le fichier server/arrets.js
+    // vers l'objet stopsRouter défini dans le fichier server/arrets.js
     app.use("/arrets", stopsRouter(models, Op, Sequelize));
     app.use("/public", express.static(path.join(__dirname, 'public')));
     app.get('/', (req, res) => {
-        res.render(path.join(tplPath, "index.html"));
+        res.render(path.join(tplPath, "index"), { active: 'map' });
     });
     app.listen(3000,  () => console.log("Lancement du projet sur le port 3000"));
 }
